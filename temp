@@ -1,0 +1,129 @@
+
+/*cl_int status = CL_SUCCESS;
+
+    cl_uint numPlatforms = 0;
+    std::vector<cl_platform_id> platforms;
+    std::vector<std::vector<cl_device_id>> devices;
+    
+    status = clGetPlatformIDs(0, nullptr, &numPlatforms);
+    if(status != CL_SUCCESS){ std::cout << "Cannot get number of platforms: " << status << "\n"; return -1; }
+    
+    platforms.resize(numPlatforms);
+    devices.resize(numPlatforms);
+	status = clGetPlatformIDs(numPlatforms, platforms.data(), nullptr);
+    if(status != CL_SUCCESS){ std::cout << "Cannot get platform ids: " << status << "\n"; return -1; }
+
+    for(cl_uint i=0; i<numPlatforms; ++i)
+    {
+        cl_uint numDevices = 0;
+        status = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, 0, nullptr, &numDevices);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get number of devices: " << status << "\n"; return -1; }
+
+        if(numDevices == 0){ std::cout << "There are no devices in platform " << i << "\n"; continue; }
+
+        devices[i].resize(numDevices);
+        
+        status = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_ALL, numDevices, devices[i].data(), nullptr);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get device ids: " << status << "\n"; return -1; }
+        
+    }
+
+    //select platform and device:
+    const auto platformIdx = 0;
+    const auto deviceIdx   = 0;
+    const auto platform    = platforms[platformIdx];
+    const auto device      = devices[platformIdx][deviceIdx];
+
+    //print names:
+    {
+        size_t vendor_name_length = 0;
+        status = clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, 0, nullptr, &vendor_name_length);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get platform vendor name length: " << status << "\n"; return -1; }
+
+        std::string vendor_name(vendor_name_length, '\0');
+        status = clGetPlatformInfo(platform, CL_PLATFORM_VENDOR, vendor_name_length, (void*)vendor_name.data(), nullptr);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get platform vendor name: " << status << "\n"; return -1; }
+
+        size_t device_name_length = 0;
+        status = clGetDeviceInfo(device, CL_DEVICE_NAME, 0, nullptr, &device_name_length);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get device name length: " << status << "\n"; return -1; }
+
+        std::string device_name(device_name_length, '\0');
+        status = clGetDeviceInfo(device, CL_DEVICE_NAME, device_name_length, (void*)device_name.data(), nullptr);
+        if(status != CL_SUCCESS){ std::cout << "Cannot get device name: " << status << "\n"; return -1; }
+
+        std::cout << "Platform: " << vendor_name << "\n";
+        std::cout << "Device: "   << device_name << "\n";
+    }
+
+	std::array<cl_context_properties, 3> cps = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+	auto context = clCreateContext(cps.data(), 1, &device, 0, 0, &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create context: " << status << "\n"; return -1; }
+
+    //OpenCL 1.2:
+    //auto queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &status);
+    //Above OpenCL 1.2:
+    cl_command_queue_properties cqps = CL_QUEUE_PROFILING_ENABLE;
+	std::array<cl_queue_properties, 3> qps = { CL_QUEUE_PROPERTIES, cqps, 0 };
+	auto queue = clCreateCommandQueueWithProperties(context, device, qps.data(), &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create command queue: " << status << "\n"; return -1; }
+
+
+	std::ifstream file("./../../jump_flood/jump_flood.cl");
+    if (!file.is_open()) { std::cout << "Could not open kernel file at: jump_flood.cl"; return -1; }
+	std::string source( std::istreambuf_iterator<char>(file), (std::istreambuf_iterator<char>()));
+	size_t      sourceSize = source.size();
+	const char* sourcePtr  = source.c_str();
+	auto program = clCreateProgramWithSource(context, 1, &sourcePtr, &sourceSize, &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create program: " << status << "\n"; return -1; }
+
+	status = clBuildProgram(program, 1, &device, "", nullptr, nullptr);
+	if (status != CL_SUCCESS)
+	{
+        std::cout << "Cannot build program: " << status << "\n";
+		size_t len = 0;
+		status = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &len);
+		std::unique_ptr<char[]> log = std::make_unique<char[]>(len);
+		status = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, len, log.get(), nullptr);
+		std::cout << log.get() << "\n";
+		return -1;
+	}
+    auto kernel = clCreateKernel(program, "jump_flood", &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create kernel: " << status << "\n"; return -1; }
+    
+        /*cl_mem buff0 = clCreateBuffer(context, CL_MEM_READ_WRITE  | CL_MEM_COPY_HOST_PTR , map0.size() * sizeof(cl_int3), map0.data(), &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create input object: " << status << "\n"; return -1; }
+    cl_mem buff1 = clCreateBuffer(context, CL_MEM_READ_WRITE  | CL_MEM_COPY_HOST_PTR , map1.size() * sizeof(cl_int3), map1.data(), &status);
+    if(status != CL_SUCCESS){ std::cout << "Cannot create output object: " << status << "\n"; return -1; }
+
+
+	status = clSetKernelArg(kernel, 0, sizeof(buff0), &buff0);
+    if(status != CL_SUCCESS){ std::cout << "Cannot set kernel argument 0: " << status << "\n"; return -1; }
+	status = clSetKernelArg(kernel, 1, sizeof(buff1), &buff1);
+    if(status != CL_SUCCESS){ std::cout << "Cannot set kernel argument 1: " << status << "\n"; return -1; }
+
+    cl_int step = 4;
+
+	status = clSetKernelArg(kernel, 2, sizeof(step), &step);
+    if(status != CL_SUCCESS){ std::cout << "Cannot set kernel argument 2: " << status << "\n"; return -1; }
+
+    size_t kernel_dims[2] = {(size_t)w, (size_t)h};
+	status = clEnqueueNDRangeKernel(queue, kernel, 2, nullptr, kernel_dims, nullptr, 0, nullptr, nullptr);
+    if(status != CL_SUCCESS){ std::cout << "Cannot enqueue kernel: " << status << "\n"; return -1; }
+
+    std::swap(buff0, buff1);*/
+
+    /*clReleaseMemObject(buff0);
+    clReleaseMemObject(buff1); 
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
+    clReleaseDevice(device);*/
+
+
+/*        std::string  source( std::istreambuf_iterator<char>{ source_file }, std::istreambuf_iterator<char>{} ).append(distance_op);
+        size_t       sourceSize = source.size();
+        const char*  sourcePtr  = source.c_str();
+        auto pogram = clCreateProgramWithSource(context, 1, &sourcePtr, &sourceSize, &status);
+        if(status != CL_SUCCESS){ std::cout << "Cannot create program: " << status << "\n"; return -1; }*/
