@@ -49,7 +49,7 @@ int main()
         // generate seed colors
         std::uniform_real_distribution<float> dist{0, 1};
 
-        /*auto gen_color = [&dist, &mersenne_engine](){     
+        auto gen_color = [&dist, &mersenne_engine](){     
                                                         color rgba;
                                                         rgba.r = dist(mersenne_engine);
                                                         rgba.g = dist(mersenne_engine);
@@ -57,12 +57,12 @@ int main()
                                                         rgba.a = 1.0f;
                                                         return rgba; 
                                                     };
-        generate(seed_colors.begin(), seed_colors.end(), gen_color);*/
+        generate(seed_colors.begin(), seed_colors.end(), gen_color);
 
-        seed_colors[0] = color{ 1.0f, 0.0f, 0.0f, 1.0f};
+        /*seed_colors[0] = color{ 1.0f, 0.0f, 0.0f, 1.0f};
         seed_colors[1] = color{ 1.0f, 1.0f, 0.0f, 1.0f};
         seed_colors[2] = color{ 0.0f, 1.0f, 0.0f, 1.0f};
-        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};
+        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};*/ // colors for debug
 
         // generate seed points
         std::uniform_int_distribution<int> dist_w{0, w-1};
