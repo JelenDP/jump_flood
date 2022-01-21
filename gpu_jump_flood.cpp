@@ -25,7 +25,6 @@
 #include "define.h"
 
 struct rawcolor { unsigned char r, g, b, a; };
-struct rawcolor3{ unsigned char r, g, b; };
 struct color    { float         r, g, b, a; };
 struct Point    { cl_int3 point; };
 
