@@ -37,7 +37,7 @@ int main()
 
         // Initialize vectors
         std::vector<cl_int3> map0(w*h);
-        std::vector<cl_int3> map1(w*h);
+        std::vector<cl_int3> zero(w*h);
         std::vector<cl_int3> seeds(n_seed);
 
         std::vector<color> seed_colors(n_seed);
@@ -60,9 +60,9 @@ int main()
         generate(seed_colors.begin(), seed_colors.end(), gen_color);*/
 
         seed_colors[0] = color{ 1.0f, 0.0f, 0.0f, 1.0f};
-        seed_colors[1] = color{ 1.0f, 1.0f, 0.0f, 1.0f};
+        /*seed_colors[1] = color{ 1.0f, 1.0f, 0.0f, 1.0f};
         seed_colors[2] = color{ 0.0f, 1.0f, 0.0f, 1.0f};
-        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};
+        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};*/
 
         // generate seed points
         std::uniform_int_distribution<int> dist_w{0, w-1};
@@ -83,7 +83,7 @@ int main()
 
         auto gen_map = [](){return cl_int3{ 0 , 0 , 0 };};
         generate(map0.begin(), map0.end(), gen_map);
-        generate(map1.begin(), map1.end(), gen_map);
+        generate(zero.begin(), zero.end(), gen_map);
 
         for (int i = 0; i < n_seed; i++){
             idx = ( seeds[i].y * w) + seeds[i].x;
@@ -136,10 +136,10 @@ int main()
         //cl::Kernel jump_flood_kernel = cl::Kernel(program, "jump_flood");
 
         cl::Buffer buff0{ context, std::begin(map0), std::end(map0), true },
-                   buff1{ context, std::begin(map1), std::end(map1), true };
+                   buff1{ context, std::begin(zero), std::end(zero), true };
 
         cl::copy(queue, std::begin(map0), std::end(map0), buff0);
-        cl::copy(queue, std::begin(map1), std::end(map1), buff1);
+        cl::copy(queue, std::begin(zero), std::end(zero), buff1);
 
         cl_int which = 0; //which buffer is read and which is wroten
         //std::vector<cl::Event> passes;
@@ -147,7 +147,7 @@ int main()
         //log2(n) step
         std::cout << " Start Jump Flood algorithm \n";
         int ciklus = 1;
-        for ( int step = w/2 ; step >= 1; step /= 2){
+        for ( int step = w/2 ; step >= w/2 ; step /= 2){
             std::cout << "  Step: " << ciklus << ", step length: " << step << "\n";
 
             //jump_flood_kernel.setArg(0,buff0);
@@ -157,16 +157,18 @@ int main()
 		    //queue.enqueueNDRangeKernel(jump_flood_kernel, cl::NullRange, cl::NDRange{ (size_t)(w*h) } , cl::NullRange);
             //queue.finsih();
 
-            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w*h) } }, buff0, buff1, step)};
+            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buff0, buff1, step)};
             jfa_event.wait();
             //passes.push_back(jfa_event);
 
             if ( which == 0){
+                std::cout << "nulla";
                 cl::copy(queue, buff1, std::begin(map0), std::end(map0));
                 which = 1;
             }else{
+                std::cout << "egy";
                 cl::copy(queue, buff0, std::begin(map0), std::end(map0));
-                which=0; 
+                which = 0; 
             }
 
             /*for (int x = 0; x < w; x++ ){
@@ -198,7 +200,7 @@ int main()
                                             (unsigned char)(c.b*255.0f),
                                             (unsigned char)(1.0f*255.0f) }; } );
 
-            std::string img_name = "../../jump_flood/results/res" + std::to_string(ciklus) + ".png";
+            std::string img_name = "../../results/res" + std::to_string(ciklus) + ".png";
             const char* img_name_c = img_name.c_str();
             int res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
             

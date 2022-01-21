@@ -12,7 +12,7 @@ kernel void jump_flood( global int3* buff0, //main buffer
 	int x = get_global_id(0);
     int y = get_global_id(1);
     
-    int idx0 = (y*w) + x;   //idx of thread
+    int idx0 = ( y * w ) + x;   //idx of thread
     int idx;                //idx of current neighbour
     int3 point; //(x,y,seed) of current point 
     float d20;              //distance from current seed
@@ -34,9 +34,9 @@ kernel void jump_flood( global int3* buff0, //main buffer
         point.z = buff0[idx0].z;
     
         // all thread which has seed write their seed to their 8 neighbour and to themself
-        buff1[idx0].x = point.x;
-        buff1[idx0].y = point.y;
-        buff1[idx0].z = point.z;
+        // buff1[idx0].x = point.x;
+        // buff1[idx0].y = point.y;
+        // buff1[idx0].z = point.z;
 
         for (int i=0; i < 8; i++){
             idx = ( ( y + (step * direction[i].y) ) * w) + ( x + ( step * direction[i].x ) );
@@ -45,7 +45,7 @@ kernel void jump_flood( global int3* buff0, //main buffer
                     buff1[idx].x = point.x;
                     buff1[idx].y = point.y;
                     buff1[idx].z = point.z;
-                }else{ // if it already has seed, then calculate the distance
+                }/*else{ // if it already has seed, then calculate the distance
                     d20 = distance(point.x,      point.y,      x, y);
                     d21 = distance(buff1[idx].x, buff1[idx].y, x, y);
                     if (d20 < d21){ // if previous seed is farther than current seed, then copy current one
@@ -53,7 +53,7 @@ kernel void jump_flood( global int3* buff0, //main buffer
                         buff1[idx].y = point.y;
                         buff1[idx].z = point.z;
                     }
-                }
+                }*/
             }
         }
     }
