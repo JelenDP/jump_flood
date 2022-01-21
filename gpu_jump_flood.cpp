@@ -76,6 +76,7 @@ int main()
                                                     return point;
                                                     };
         generate(seeds.begin(), seeds.end(), gen_seed);
+        seeds[0] = cl_int3{0,0,1}; ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // fill the maps with seeds and colors
         auto gen_colormap = [](){return color{ 0.0f , 0.0f , 0.0f , 1.0f };};
@@ -122,7 +123,7 @@ int main()
         std::cout << "Default queue on platform: " << platform.getInfo<CL_PLATFORM_VENDOR>() << std::endl;
         std::cout << "Default queue on device: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
 
-        auto  distance_op = "float distance(int x0, int y0, int x1, int y1) { return ((x0-x1)*(x0-x1)) + ((y0-y1)*(y0-y1)); }";
+        auto  distance_op = "float r(int x0, int y0, int x1, int y1) { return ((x0-x1)*(x0-x1)) + ((y0-y1)*(y0-y1)); }";
 
         std::ifstream source_file{ "./../../jump_flood.cl" };
         if (!source_file.is_open())
@@ -133,16 +134,15 @@ int main()
         program.build({ device });
 
         auto jfa = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl_int>(program, "jump_flood");
-        //cl::Kernel jump_flood_kernel = cl::Kernel(program, "jump_flood");
 
-        cl::Buffer buff0{ context, std::begin(map0), std::end(map0), true },
-                   buff1{ context, std::begin(zero), std::end(zero), true };
+        std::array<cl::Buffer, 2> buffer { cl::Buffer{ context, std::begin(map0), std::end(map0), false }, 
+                                           cl::Buffer{ context, std::begin(zero), std::end(zero), false } };
 
-        cl::copy(queue, std::begin(map0), std::end(map0), buff0);
-        cl::copy(queue, std::begin(zero), std::end(zero), buff1);
+        cl::copy(queue, std::begin(map0), std::end(map0), buffer[0]);
+        cl::copy(queue, std::begin(zero), std::end(zero), buffer[1]);
 
-        cl_int which = 0; //which buffer is read and which is wroten
-        //std::vector<cl::Event> passes;
+        cl_int front = 0; //which buffer is read (front) and which is wroten (back)
+        cl_int back  = 1;
 
         //log2(n) step
         std::cout << " Start Jump Flood algorithm \n";
@@ -150,26 +150,25 @@ int main()
         for ( int step = w/2 ; step >= w/2 ; step /= 2){
             std::cout << "  Step: " << ciklus << ", step length: " << step << "\n";
 
-            //jump_flood_kernel.setArg(0,buff0);
-            //jump_flood_kernel.setArg(1,buff1);
-            //jump_flood_kernel.setArg(2,step);
 
-		    //queue.enqueueNDRangeKernel(jump_flood_kernel, cl::NullRange, cl::NDRange{ (size_t)(w*h) } , cl::NullRange);
-            //queue.finsih();
+            const cl_int2 direction[8] = { {  1,  0 } ,  // <
+                                           { -1,  0 } ,  // >
+                                           {  0,  1 } ,  // v 
+                                        {  0, -1 } ,  // ^
+                                        {  1,  1 } ,  
+                                        { -1, -1 } ,
+                                        {  1, -1 } ,
+                                        { -1,  1 } } ;
 
-            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buff0, buff1, step)};
-            jfa_event.wait();
-            //passes.push_back(jfa_event);
-
-            if ( which == 0){
-                std::cout << "nulla";
-                cl::copy(queue, buff1, std::begin(map0), std::end(map0));
-                which = 1;
-            }else{
-                std::cout << "egy";
-                cl::copy(queue, buff0, std::begin(map0), std::end(map0));
-                which = 0; 
+            for (int i = 0; i < 8; i++){
+                idx = ( ( seeds[0].y +  step * direction[i].y ) * w ) + ( seeds[0].x + step * direction[i].x );
+                std::cout << seeds[0].y << " " <<  step << " " << direction[i].y << " " << w  << " " << seeds[0].x << " " << step << " " << direction[i].x  << " " << idx <<"\n";
+                //if (idx >= 0 && idx <= w*h) {std::cout << i+1 << " "<< idx << "\n";}
             }
+
+            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], step)};
+            jfa_event.wait();
+            cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
 
             /*for (int x = 0; x < w; x++ ){
                 for (int y = 0; y < h; y++ ){
@@ -205,7 +204,7 @@ int main()
             int res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
             
             // end of step
-            std::swap(buff0, buff1);
+            if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
             ciklus++;
 
         }
