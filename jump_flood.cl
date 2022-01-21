@@ -2,7 +2,6 @@
 
 
 float r(int x0, int y0, int x1, int y1);
-//float r(int x0, int y0, int x1, int y1) { return ((x0-x1)*(x0-x1)) + ((y0-y1)*(y0-y1)); }
 
 kernel void jump_flood( global int3* buff0, //main buffer
                         global int3* buff1, //copy buffer
@@ -46,7 +45,7 @@ kernel void jump_flood( global int3* buff0, //main buffer
         yc =  y + step * direction[i].y;
         xc =  x + step * direction[i].x;
         idx = ( yc * w ) + xc;
-        if (yc >= 0 && yc <= h && xc >= 0 && xc <= w) {
+        if (yc >= 0 && yc < h && xc >= 0 && xc < w) {
             if (buff0[idx].z != 0){
                 d20 = r(point.x,      point.y,      x, y);
                 d21 = r(buff0[idx].x, buff0[idx].y, x, y);
@@ -57,7 +56,7 @@ kernel void jump_flood( global int3* buff0, //main buffer
                 }
             }
         }
-    } 
+    }
     
     // write point to back buffer if it has seed
     if (point.z != 0){

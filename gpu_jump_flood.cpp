@@ -113,6 +113,8 @@ int main()
         int res = stbi_write_png("../../results/res0.png", w, h, 4, output_img.data(), w*4);
 
         // OpenCL init:
+        cl_int status = CL_SUCCESS;
+
         cl::CommandQueue queue = cl::CommandQueue::getDefault();
 
         cl::Device device = queue.getInfo<CL_QUEUE_DEVICE>();
@@ -122,7 +124,7 @@ int main()
         std::cout << "Default queue on platform: " << platform.getInfo<CL_PLATFORM_VENDOR>() << std::endl;
         std::cout << "Default queue on device: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
 
-        auto  distance_op = "float r(int x0, int y0, int x1, int y1) { return ((x0-x1)*(x0-x1)) + ((y0-y1)*(y0-y1)); }";
+        auto  distance_op = "float r(int x0, int y0, int x1, int y1) { return (1.0f*(x0-x1)*(x0-x1)) + (1.0f*(y0-y1)*(y0-y1)); }";
 
         std::ifstream source_file{ "./../../jump_flood.cl" };
         if (!source_file.is_open())
