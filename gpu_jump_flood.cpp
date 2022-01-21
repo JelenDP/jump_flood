@@ -60,9 +60,9 @@ int main()
         generate(seed_colors.begin(), seed_colors.end(), gen_color);*/
 
         seed_colors[0] = color{ 1.0f, 0.0f, 0.0f, 1.0f};
-        /*seed_colors[1] = color{ 1.0f, 1.0f, 0.0f, 1.0f};
+        seed_colors[1] = color{ 1.0f, 1.0f, 0.0f, 1.0f};
         seed_colors[2] = color{ 0.0f, 1.0f, 0.0f, 1.0f};
-        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};*/
+        seed_colors[3] = color{ 0.0f, 0.0f, 1.0f, 1.0f};
 
         // generate seed points
         std::uniform_int_distribution<int> dist_w{0, w-1};
@@ -76,7 +76,7 @@ int main()
                                                     return point;
                                                     };
         generate(seeds.begin(), seeds.end(), gen_seed);
-        seeds[0] = cl_int3{0,0,1}; ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+        //seeds[0] = cl_int3{0,0,1};
 
         // fill the maps with seeds and colors
         auto gen_colormap = [](){return color{ 0.0f , 0.0f , 0.0f , 1.0f };};
@@ -147,11 +147,11 @@ int main()
         //log2(n) step
         std::cout << " Start Jump Flood algorithm \n";
         int ciklus = 1;
-        for ( int step = w/2 ; step >= w/2 ; step /= 2){
+        for ( int step = w/2 ; step >= 1 ; step /= 2){
             std::cout << "  Step: " << ciklus << ", step length: " << step << "\n";
 
 
-            const cl_int2 direction[8] = { {  1,  0 } ,  // <
+            /*const cl_int2 direction[8] = { {  1,  0 } ,  // <
                                            { -1,  0 } ,  // >
                                            {  0,  1 } ,  // v 
                                         {  0, -1 } ,  // ^
@@ -164,7 +164,7 @@ int main()
                 idx = ( ( seeds[0].y +  step * direction[i].y ) * w ) + ( seeds[0].x + step * direction[i].x );
                 std::cout << seeds[0].y << " " <<  step << " " << direction[i].y << " " << w  << " " << seeds[0].x << " " << step << " " << direction[i].x  << " " << idx <<"\n";
                 //if (idx >= 0 && idx <= w*h) {std::cout << i+1 << " "<< idx << "\n";}
-            }
+            }*/
 
             cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], step)};
             jfa_event.wait();
