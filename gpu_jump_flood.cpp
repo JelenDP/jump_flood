@@ -76,7 +76,6 @@ int main()
                                                     return point;
                                                     };
         generate(seeds.begin(), seeds.end(), gen_seed);
-        //seeds[0] = cl_int3{0,0,1};
 
         // fill the maps with seeds and colors
         auto gen_colormap = [](){return color{ 0.0f , 0.0f , 0.0f , 1.0f };};
@@ -130,7 +129,7 @@ int main()
             throw std::runtime_error{ std::string{ "Cannot open kernel source: " } + "./../../jump_flood.cl" };
 
         cl::Program program{ std::string{ std::istreambuf_iterator<char>{ source_file },
-                                        std::istreambuf_iterator<char>{} }.append(distance_op) };
+                                          std::istreambuf_iterator<char>{} }.append(distance_op) };
         program.build({ device });
 
         auto jfa = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl_int>(program, "jump_flood");
@@ -150,33 +149,9 @@ int main()
         for ( int step = w/2 ; step >= 1 ; step /= 2){
             std::cout << "  Step: " << ciklus << ", step length: " << step << "\n";
 
-
-            /*const cl_int2 direction[8] = { {  1,  0 } ,  // <
-                                           { -1,  0 } ,  // >
-                                           {  0,  1 } ,  // v 
-                                        {  0, -1 } ,  // ^
-                                        {  1,  1 } ,  
-                                        { -1, -1 } ,
-                                        {  1, -1 } ,
-                                        { -1,  1 } } ;
-
-            for (int i = 0; i < 8; i++){
-                idx = ( ( seeds[0].y +  step * direction[i].y ) * w ) + ( seeds[0].x + step * direction[i].x );
-                std::cout << seeds[0].y << " " <<  step << " " << direction[i].y << " " << w  << " " << seeds[0].x << " " << step << " " << direction[i].x  << " " << idx <<"\n";
-                //if (idx >= 0 && idx <= w*h) {std::cout << i+1 << " "<< idx << "\n";}
-            }*/
-
             cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], step)};
             jfa_event.wait();
             cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
-
-            /*for (int x = 0; x < w; x++ ){
-                for (int y = 0; y < h; y++ ){
-                    idx = ( y * w ) + x ;
-                    printf(" %1d ", map0[idx].z);
-                }
-                printf("\n");
-            }*/
 
             // fill the colormap with new seeds
             for (int x = 0; x < w; x++ ){
@@ -226,6 +201,7 @@ int main()
                                         (unsigned char)(1.0f*255.0f) }; } );
 
         res = stbi_write_png("../../results/output.png", w, h, 4, output_img.data(), w*4);
+        std::cout << " Jump Flood algorithm finished \n";
 
 
     }

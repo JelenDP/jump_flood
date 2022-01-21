@@ -9,8 +9,10 @@ kernel void jump_flood( global int3* buff0, //main buffer
                         int step            //step lenght
                     )
 {
-	int x = get_global_id(0);
-    int y = get_global_id(1);
+	int x = get_global_id(0); // current x
+    int y = get_global_id(1); // current y
+    int xc; // neighbour x
+    int yc; // neighbour y
     
     int idx0 = ( y * w ) + x;   //idx of thread
     int idx;                    //idx of current neighbour
@@ -41,8 +43,10 @@ kernel void jump_flood( global int3* buff0, //main buffer
 
     // all thread read their 8 neighbours and if find a closer one then current copy it to point
     for (int i = 0; i < 8; i++){
-        idx = ( ( y +  step * direction[i].y ) * w ) + ( x + step * direction[i].x );
-        if (idx >= 0 && idx <= w*h) {
+        yc =  y + step * direction[i].y;
+        xc =  x + step * direction[i].x;
+        idx = ( yc * w ) + xc;
+        if (yc >= 0 && yc <= h && xc >= 0 && xc <= w) {
             if (buff0[idx].z != 0){
                 d20 = r(point.x,      point.y,      x, y);
                 d21 = r(buff0[idx].x, buff0[idx].y, x, y);
