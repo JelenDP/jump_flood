@@ -201,7 +201,7 @@ int main()
 
             std::string img_name = "../../results/res" + std::to_string(ciklus) + ".png";
             const char* img_name_c = img_name.c_str();
-            int res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
+            res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
             
             // end of step
             if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
@@ -210,6 +210,23 @@ int main()
         }
 
         cl::finish();
+
+        // set the original position with black
+        for (int i = 0; i < n_seed; i++){
+            idx = ( seeds[i].y * w) + seeds[i].x;
+            colormap[idx].r = 0.0f;
+            colormap[idx].g = 0.0f;
+            colormap[idx].b = 0.0f;
+            colormap[idx].a = 1.0f;
+        }
+        std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
+        [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
+                                        (unsigned char)(c.g*255.0f),
+                                        (unsigned char)(c.b*255.0f),
+                                        (unsigned char)(1.0f*255.0f) }; } );
+
+        res = stbi_write_png("../../results/output.png", w, h, 4, output_img.data(), w*4);
+
 
     }
     catch (cl::BuildError& error) // If kernel failed to build
