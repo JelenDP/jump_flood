@@ -199,8 +199,6 @@ int main()
                                         (unsigned char)(1.0f*255.0f) }; } );
 
         res = stbi_write_png("../../results/impv_jfa_output.png", w, h, 4, output_img.data(), w*4);
-
-
     }
     catch (cl::BuildError& error) // If kernel failed to build
     {
