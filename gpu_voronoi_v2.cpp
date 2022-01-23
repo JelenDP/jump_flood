@@ -109,8 +109,8 @@ int main()
                                                 (unsigned char)(c.b*255.0f),
                                                 (unsigned char)(1.0f*255.0f) }; } );
 
-        int res = stbi_write_png("../../results/res0.png", w, h, 4, output_img.data(), w*4);
-
+        int res = stbi_write_png("../../results/start.png", w, h, 4, output_img.data(), w*4);
+        
         // OpenCL init:
         cl_int status = CL_SUCCESS;
 
@@ -133,7 +133,7 @@ int main()
                                           std::istreambuf_iterator<char>{} }.append(distance_op) };
         program.build({ device });
 
-        auto jfa = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl_int>(program, "jump_flood");
+        auto jfa = cl::KernelFunctor<cl::Buffer, cl::LocalSpaceArg>(program, "jump_flood_improved");
 
         std::array<cl::Buffer, 2> buffer { cl::Buffer{ context, std::begin(map0), std::end(map0), false }, 
                                            cl::Buffer{ context, std::begin(zero), std::end(zero), false } };
@@ -144,65 +144,48 @@ int main()
         cl_int front = 0; //which buffer is read (front) and which is wroten (back)
         cl_int back  = 1;
 
-        //log2(n) step
-        std::cout << " Start Jump Flood algorithm \n";
-        int ciklus = 1;
-        for ( int step = w/2 ; step >= 1 ; step /= 2){
-            std::cout << "  Step: " << ciklus << ", step length: " << step << "\n";
+        std::cout << " Start improved Jump Flood algorithm, ";
 
-            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], step)};
-            jfa_event.wait();
-            cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
-
-            // fill the colormap with new seeds
-            for (int x = 0; x < w; x++ ){
-                for (int y = 0; y < h; y++ ){
-                    idx = ( y * w ) + x ;
-                    int seed = map0[idx].z - 1;
-                    if (seed > n_seed) { throw std::runtime_error{ std::string{ "Invalid seed: " } + std::to_string(seed) }; }
-                    if ( seed >= 0){
-                        colormap[idx].r = seed_colors[seed].r;
-                        colormap[idx].g = seed_colors[seed].g;
-                        colormap[idx].b = seed_colors[seed].b;
-                    }
-                }
-            }
-
-            // save the results into an image
-            std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
-            [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
-                                            (unsigned char)(c.g*255.0f),
-                                            (unsigned char)(c.b*255.0f),
-                                            (unsigned char)(1.0f*255.0f) }; } );
-
-            std::string img_name = "../../results/res" + std::to_string(ciklus) + ".png";
-            const char* img_name_c = img_name.c_str();
-            res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
-            
-            // end of step
-            if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
-            ciklus++;
-
-        }
+        auto null = std::chrono::microseconds(0);
+        auto start_step = std::chrono::high_resolution_clock::now();
+        cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) },cl::NDRange{ (size_t)(BS), (size_t)(BS) } }, 
+                                                   buffer[front], cl::Local(BS * BS * sizeof(cl_int3)))};
+        jfa_event.wait();
+        auto end_step = std::chrono::high_resolution_clock::now();
+        null += std::chrono::duration_cast<std::chrono::microseconds>(end_step - start_step);
+        std::cout << " time: " << null.count() << " ms \n";
+        cl::copy(queue, buffer[front], std::begin(map0), std::end(map0));
 
         cl::finish();
 
         // set the original position with black
-        for (int i = 0; i < n_seed; i++){
+        // fill the colormap with new seeds
+        for (int x = 0; x < w; x++ ){
+            for (int y = 0; y < h; y++ ){
+                idx = ( y * w ) + x ;
+                int seed = map0[idx].z - 1;
+                if (seed > n_seed) { throw std::runtime_error{ std::string{ "Invalid seed: " } + std::to_string(seed) }; }
+                if ( seed >= 0){
+                    colormap[idx].r = seed_colors[seed].r;
+                    colormap[idx].g = seed_colors[seed].g;
+                    colormap[idx].b = seed_colors[seed].b;
+                }
+            }
+        }
+        /*for (int i = 0; i < n_seed; i++){
             idx = ( seeds[i].y * w) + seeds[i].x;
             colormap[idx].r = 0.0f;
             colormap[idx].g = 0.0f;
             colormap[idx].b = 0.0f;
             colormap[idx].a = 1.0f;
-        }
+        }*/
         std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
         [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
                                         (unsigned char)(c.g*255.0f),
                                         (unsigned char)(c.b*255.0f),
                                         (unsigned char)(1.0f*255.0f) }; } );
 
-        res = stbi_write_png("../../results/output.png", w, h, 4, output_img.data(), w*4);
-        std::cout << " Jump Flood algorithm finished \n";
+        res = stbi_write_png("../../results/impv_jfa_output.png", w, h, 4, output_img.data(), w*4);
 
 
     }
