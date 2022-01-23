@@ -147,7 +147,49 @@ int main()
 
         std::cout << " Start improved Jump Flood algorithm \n ";
 
+        std::cout << "  Start global Jump Flood steps \n ";
+        int ciklus = 1;
         auto null = std::chrono::microseconds(0);
+        for ( int step = BS ; step >= BS ; step /= 2){
+            std::cout << "   Step: " << ciklus << ", step length: " << step;
+            auto start_step = std::chrono::high_resolution_clock::now();
+            cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], step)};
+            jfa_event.wait();
+            auto end_step = std::chrono::high_resolution_clock::now();
+            null += std::chrono::duration_cast<std::chrono::microseconds>(end_step - start_step);
+            std::cout << " time: " << null.count() << " ms \n";
+            cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
+
+            // fill the colormap with new seeds
+            for (int x = 0; x < w; x++ ){
+                for (int y = 0; y < h; y++ ){
+                    idx = ( y * w ) + x ;
+                    int seed = map0[idx].z - 1;
+                    if (seed > n_seed) { throw std::runtime_error{ std::string{ "Invalid seed: " } + std::to_string(seed) }; }
+                    if ( seed >= 0){
+                        colormap[idx].r = seed_colors[seed].r;
+                        colormap[idx].g = seed_colors[seed].g;
+                        colormap[idx].b = seed_colors[seed].b;
+                    }
+                }
+            }
+
+            // save the results into an image
+            std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
+            [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
+                                            (unsigned char)(c.g*255.0f),
+                                            (unsigned char)(c.b*255.0f),
+                                            (unsigned char)(1.0f*255.0f) }; } );
+
+            std::string img_name = "../../results/impv_jfa_res" + std::to_string(ciklus) + ".png";
+            const char* img_name_c = img_name.c_str();
+            res = stbi_write_png(img_name_c, w, h, 4, output_img.data(), w*4);
+            
+            // end of step
+            if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
+            ciklus++;
+        }
+        /*auto null = std::chrono::microseconds(0);
         auto start_step = std::chrono::high_resolution_clock::now();
         cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], BS)};
         jfa_event.wait();
@@ -156,13 +198,14 @@ int main()
         std::cout << "  global step time: " << null.count() << " ms \n";
         cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
         
-        if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
+        if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};*/
 
-        start_step = std::chrono::high_resolution_clock::now();
+        std::cout << "  Start local Jump Flood step \n ";
+        auto start_step = std::chrono::high_resolution_clock::now();
         cl::Event jfa_impv_event{ (jfa_impv)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) },cl::NDRange{ (size_t)(BS), (size_t)(BS) } }, 
                                                              buffer[front], cl::Local(BS * BS * sizeof(cl_int3)))};
         jfa_impv_event.wait();
-        end_step = std::chrono::high_resolution_clock::now();
+        auto end_step = std::chrono::high_resolution_clock::now();
         auto local_time = std::chrono::duration_cast<std::chrono::microseconds>(end_step - start_step);
         std::cout << "   local step time: " << local_time.count() << " ms \n";
         null += local_time;

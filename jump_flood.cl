@@ -98,7 +98,6 @@ kernel void jump_flood_improved( global int3* buff_g, //main buffer
 
     const size_t wid = get_group_id(0);
 
-    int steps = w / BS;
     int3 point = (int3) { 2*BS*BS + 1, 2*BS*BS + 1,  0};
 
     int idx0 = ly * BS + lx;   //idx of thread
