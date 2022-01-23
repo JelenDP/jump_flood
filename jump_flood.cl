@@ -95,9 +95,11 @@ kernel void jump_flood_improved( global int3* buff_g, //main buffer
 
     int lx = get_local_id(0); // local x
     int ly = get_local_id(1); // local y
-    
+
+    const size_t wid = get_group_id(0);
+
     int steps = w / BS;
-    int3 point;
+    int3 point = (int3) { 2*BS*BS + 1, 2*BS*BS + 1,  0};
 
     int idx0 = ly * BS + lx;   //idx of thread
 
@@ -110,39 +112,54 @@ kernel void jump_flood_improved( global int3* buff_g, //main buffer
                                 {  1, -1 } ,
                                 { -1,  1 } } ;
 
-    for (int block_i=0; block_i < 1; block_i++){
-        buff_l[idx0] = buff_g[ gy * w + block_i * BS + lx];  // copy from global to local
-        barrier(CLK_LOCAL_MEM_FENCE);                        // wait until copy done
-        for (int step = BS/2 ; step >= BS/2 ; step /= 2){        // jump flood steps
-            if (buff_l[idx0].z != 0){
-                point = (int3) { buff_l[idx0].x, buff_l[idx0].y, buff_l[idx0].z };
-            }else{
-                point = (int3) { w*w + h*h + 1,  w*w + h*h + 1,  0}; 
-            }
-            for (int i = 0; i < 8; i++){
-                int yc =  ly + step * direction[i].y;
-                int xc =  lx + step * direction[i].x;
-                int idx = ( yc * BS ) + xc;
-                if (yc >= 0 && yc < BS && xc >= 0 && xc < BS) {
-                    if (buff_l[idx].z != 0){
-                        float d20 = r(point.x,      point.y,        gx, gy);
-                        float d21 = r(buff_l[idx].x, buff_l[idx].y, gx, gy);
-                        if (d20 > d21){ 
-                            point.x = buff_l[idx].x;
-                            point.y = buff_l[idx].y;
-                            point.z = buff_l[idx].z;
-                        }
+    buff_l[idx0] = buff_g[ gy * w + wid * BS + lx];  // copy from global to local
+    barrier(CLK_LOCAL_MEM_FENCE);                    // wait until copy done
+
+    /*event_t read;
+    async_work_group_copy(
+        buff_l,
+        buff_g + wid * BS * BS,
+        BS * BS,
+        read);
+    wait_group_events(1, &read);
+    barrier(CLK_LOCAL_MEM_FENCE);*/
+
+    for (int step = BS/2 ; step >= 1 ; step /= 2){    // jump flood steps
+        if (buff_l[idx0].z != 0){
+            point = (int3) { buff_l[idx0].x, buff_l[idx0].y, buff_l[idx0].z };
+        }
+        for (int i = 0; i < 8; i++){
+            int yc =  ly + step * direction[i].y;
+            int xc =  lx + step * direction[i].x;
+            int idx = ( yc * BS ) + xc;
+            if (yc >= 0 && yc < BS && xc >= 0 && xc < BS) {
+                if (buff_l[idx].z != 0){
+                    float d20 = r(point.x,      point.y,        gx, gy);
+                    float d21 = r(buff_l[idx].x, buff_l[idx].y, gx, gy);
+                    if (d20 > d21){ 
+                        point.x = buff_l[idx].x;
+                        point.y = buff_l[idx].y;
+                        point.z = buff_l[idx].z;
                     }
                 }
             }
-            barrier(CLK_LOCAL_MEM_FENCE);   // wait until all thread visit their neighobours
-            buff_l[idx0].x = point.x;
-            buff_l[idx0].y = point.y;
-            buff_l[idx0].z = point.z;
         }
-        buff_g[ gy * w + gx] = buff_l[idx0];  // copy back form local to global
-        barrier(CLK_LOCAL_MEM_FENCE);         // wait until copy done
+        barrier(CLK_LOCAL_MEM_FENCE);   // wait until all thread visit their neighobours
+        buff_l[idx0].x = point.x;
+        buff_l[idx0].y = point.y;
+        buff_l[idx0].z = point.z; //block_i+1;//point.z;
     }
 
+    /*event_t write;
+    async_work_group_copy(
+        buff_g + wid * BS * BS,
+        buff_l,
+        BS * BS,
+        read);
+    wait_group_events(1, &read);
+    barrier(CLK_LOCAL_MEM_FENCE);*/
+
+    buff_g[ gy * w + wid * BS + lx] = buff_l[idx0];  // copy from global to local
+    barrier(CLK_LOCAL_MEM_FENCE);                    // wait until copy done
 }
 

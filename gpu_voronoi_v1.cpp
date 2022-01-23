@@ -186,7 +186,6 @@ int main()
             // end of step
             if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
             ciklus++;
-
         }
 
         cl::finish();

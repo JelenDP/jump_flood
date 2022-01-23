@@ -133,7 +133,8 @@ int main()
                                           std::istreambuf_iterator<char>{} }.append(distance_op) };
         program.build({ device });
 
-        auto jfa = cl::KernelFunctor<cl::Buffer, cl::LocalSpaceArg>(program, "jump_flood_improved");
+        auto jfa = cl::KernelFunctor<cl::Buffer, cl::Buffer, cl_int>(program, "jump_flood");
+        auto jfa_impv = cl::KernelFunctor<cl::Buffer, cl::LocalSpaceArg>(program, "jump_flood_improved");
 
         std::array<cl::Buffer, 2> buffer { cl::Buffer{ context, std::begin(map0), std::end(map0), false }, 
                                            cl::Buffer{ context, std::begin(zero), std::end(zero), false } };
@@ -144,16 +145,28 @@ int main()
         cl_int front = 0; //which buffer is read (front) and which is wroten (back)
         cl_int back  = 1;
 
-        std::cout << " Start improved Jump Flood algorithm, ";
+        std::cout << " Start improved Jump Flood algorithm \n ";
 
         auto null = std::chrono::microseconds(0);
         auto start_step = std::chrono::high_resolution_clock::now();
-        cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) },cl::NDRange{ (size_t)(BS), (size_t)(BS) } }, 
-                                                   buffer[front], cl::Local(BS * BS * sizeof(cl_int3)))};
+        cl::Event jfa_event{ (jfa)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buffer[front], buffer[back], BS)};
         jfa_event.wait();
         auto end_step = std::chrono::high_resolution_clock::now();
         null += std::chrono::duration_cast<std::chrono::microseconds>(end_step - start_step);
-        std::cout << " time: " << null.count() << " ms \n";
+        std::cout << "  global step time: " << null.count() << " ms \n";
+        cl::copy(queue, buffer[back], std::begin(map0), std::end(map0));
+        
+        if ( front == 0) { front = 1; back = 0; }else{ front = 0; back = 1;};
+
+        start_step = std::chrono::high_resolution_clock::now();
+        cl::Event jfa_impv_event{ (jfa_impv)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) },cl::NDRange{ (size_t)(BS), (size_t)(BS) } }, 
+                                                             buffer[front], cl::Local(BS * BS * sizeof(cl_int3)))};
+        jfa_impv_event.wait();
+        end_step = std::chrono::high_resolution_clock::now();
+        auto local_time = std::chrono::duration_cast<std::chrono::microseconds>(end_step - start_step);
+        std::cout << "   local step time: " << local_time.count() << " ms \n";
+        null += local_time;
+        std::cout << "   all time:        " << null.count() << " ms \n";
         cl::copy(queue, buffer[front], std::begin(map0), std::end(map0));
 
         cl::finish();
@@ -172,13 +185,13 @@ int main()
                 }
             }
         }
-        /*for (int i = 0; i < n_seed; i++){
+        for (int i = 0; i < n_seed; i++){
             idx = ( seeds[i].y * w) + seeds[i].x;
             colormap[idx].r = 0.0f;
             colormap[idx].g = 0.0f;
             colormap[idx].b = 0.0f;
             colormap[idx].a = 1.0f;
-        }*/
+        }
         std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
         [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
                                         (unsigned char)(c.g*255.0f),
