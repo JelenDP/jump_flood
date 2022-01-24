@@ -27,16 +27,19 @@
 struct rawcolor { unsigned char r, g, b, a; };
 struct color    { float         r, g, b, a; };
 struct Point    { cl_int3 point; };
+float r(int x0, int y0, int x1, int y1) { return (1.0f*(x0-x1)*(x0-x1)) + (1.0f*(y0-y1)*(y0-y1)); };
 
 int main()
 {
     try
     {        
         int idx; //general index
+        const char spacer[60] = "---------------------------------------------";
 
         // Initialize vectors
         std::vector<cl_int3> map0(w*h);
         std::vector<cl_int3> zero(w*h);
+        std::vector<cl_int3> out(w*h);
         std::vector<cl_int3> seeds(n_seed);
 
         std::vector<color> seed_colors(n_seed);
@@ -110,8 +113,61 @@ int main()
                                                 (unsigned char)(1.0f*255.0f) }; } );
 
         int res = stbi_write_png("../../results/start.png", w, h, 4, output_img.data(), w*4);
+        std::cout << spacer << std::endl;
+        // CPU naiv Voronoi
+        std::cout << " Start naiv Voronoi in CPU, ";
+        auto start_step_cpu = std::chrono::high_resolution_clock::now();
+        cl_int3 point = {w*w + h*h + 1, w*w + h*h + 1, 0};
+        for (int x = 0; x < w; x++){
+            for (int y = 0; y < h; y++){
+                int idx = ( y * w ) + x;
+                if (map0[idx].z == 0){
+                    for ( int i = 0; i < n_seed; i++){
+                        float d20 = r(point.x,      point.y,  x, y);
+                        float d21 = r(seeds[i].x, seeds[i].y, x, y);
+                         if (d20 > d21){
+                            point.x = seeds[i].x;
+                            point.y = seeds[i].y;
+                            point.z = seeds[i].z;
+                        }
+                    }
+                    out[idx].x = point.x;
+                    out[idx].y = point.y;
+                    out[idx].z = point.z;
+                }
+            }
+        }
+        auto end_step_cpu = std::chrono::high_resolution_clock::now();
+        std::cout << " time: " << std::chrono::duration_cast<std::chrono::microseconds>(end_step_cpu - start_step_cpu).count() << " ms \n";
+
+        // save the results into an image
+        for (int x = 0; x < w; x++ ){
+            for (int y = 0; y < h; y++ ){
+                idx = ( y * w ) + x ;
+                int seed = out[idx].z - 1;
+                if (seed > n_seed) { throw std::runtime_error{ std::string{ "Invalid seed: " } + std::to_string(seed) }; }
+                if ( seed >= 0){
+                    colormap[idx].r = seed_colors[seed].r;
+                    colormap[idx].g = seed_colors[seed].g;
+                    colormap[idx].b = seed_colors[seed].b;
+                }
+            }
+        }
+        for (int i = 0; i < n_seed; i++){
+            idx = ( seeds[i].y * w) + seeds[i].x;
+            colormap[idx].r = 0.0f;
+            colormap[idx].g = 0.0f;
+            colormap[idx].b = 0.0f;
+            colormap[idx].a = 1.0f;
+        }
+        std::transform(colormap.cbegin(), colormap.cend(), output_img.begin(),
+        [](color c){ return rawcolor{   (unsigned char)(c.r*255.0f),
+                                        (unsigned char)(c.g*255.0f),
+                                        (unsigned char)(c.b*255.0f),
+                                        (unsigned char)(1.0f*255.0f) }; } );
+        res = stbi_write_png("../../results/naiv_cpu_output.png", w, h, 4, output_img.data(), w*4);
         
-        std::cout << "-------------------------------------------\n";
+        std::cout << spacer << std::endl;
         // OpenCL init:
         cl_int status = CL_SUCCESS;
 
@@ -143,7 +199,7 @@ int main()
 
         auto naiv = cl::KernelFunctor<cl::Buffer, cl::Buffer>(program, "naiv_voronoi");
 
-        std::cout << " Start naiv Voronoi, ";
+        std::cout << " Start naiv Voronoi in GPU, ";
         auto start_step = std::chrono::high_resolution_clock::now();
         cl::Event naiv_event{ (naiv)(cl::EnqueueArgs{queue,cl::NDRange{ (size_t)(w), (size_t)(h) } }, buff0, buff_seeds)};
         naiv_event.wait();
@@ -178,6 +234,7 @@ int main()
                                         (unsigned char)(c.b*255.0f),
                                         (unsigned char)(1.0f*255.0f) }; } );
         res = stbi_write_png("../../results/naiv_output.png", w, h, 4, output_img.data(), w*4);
+    std::cout << spacer << std::endl;
     }
     catch (cl::BuildError& error) // If kernel failed to build
     {
